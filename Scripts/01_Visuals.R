@@ -37,6 +37,23 @@ agg<-df %>%
 
 
 
+
+
+my_labels <- seq(2004, 2020, 1) %>%
+  substr(., 3, 4) %>% paste0("FY", .)
+#Adjust FY labels
+my_labels <- seq(2004, 2020, 1) %>%
+  substr(., 3, 4) %>% paste0("FY", .)
+# Keep every 4th label but replace those in between with blanks
+cust_labels <- nrsmisc::every_nth(my_labels, 4, inverse = T)
+# Add this to your ggplot
+scale_x_discrete(labels = cust_labels)
+
+
+
+
+
+
 #Visualize OUs for 1 indicator
 agg %>% 
   subset(indicator=="TX_CURR") %>% 
