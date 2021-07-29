@@ -1,25 +1,6 @@
-
-#load  librarys
-library(glamr)
-library(glitr)
-library(tidyverse)
-library(extrafont)
-library(glitr)
-library(ggplot2)
-library(readxl)
-library(here)
-library(ICPIutilities)
-library(janitor)
-library(dplyr)
-
-install.packages("tidytext")
-library(tidytext)
-install.packages("scales")
-library(scales) 
-
+source("Scripts/00_setup.R")
 
 setwd("C:/Users/jStephens/Documents/Migration/Wanderlust")
-si_setup()
 
 df <-read_xlsx("Data/20210707 Migration Narratives FY20Q2-FY21Q2.xlsx", sheet="data")
 
