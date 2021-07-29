@@ -55,54 +55,211 @@ df_wider<- df_long %>%
 glimpse(df_wider)
 names(df_wider)
 
-#####################################################################333
+df_long_Cat<- df_wider %>% 
+  pivot_wider(
+    names_from = val, 
+    values_from=val  ) %>% 
+  select(!c("389024", "313145", "85440", "NA")) %>% 
+  mutate(n=case_when(
+    n=="n"~"1", TRUE~n),
+    i= case_when(
+      i=="i"~"1", TRUE~i), 
+    n=as.numeric(n), 
+    i=as.numeric(i)) %>% 
+  rename(no_issue=n, issue=i)
 
-#########3 summarize by no issue and issue (2 vals)
-agg<-df2 %>% 
-   select(indicator, operating_unit, partner) %>% 
-  # mutate(val=1) %>% 
-  group_by(operating_unit, partner, name, no_issue, issue) %>% 
+df_long_cat<- df_wider %>% 
+  pivot_longer(
+    cols= no_issue:issue,  
+    names_to="category",
+    values_to="val")
+
+
+
+
+#############################################
+#########    aggregate by name
+agg_name<-df_wider %>% 
+   select(indicator, operating_unit, partner, name, no_issue, issue) %>% 
+  group_by(indicator, operating_unit, partner, name) %>% 
+  summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
+  view
+
+agg_name_long<-df_long_cat %>% 
+  select(indicator, operating_unit, partner,name, category, val) %>% 
+  group_by(indicator,operating_unit, partner,name, category ) %>% 
+  summarize_at(vars(val), sum, na.rm=TRUE) %>% 
+  view
+
+#unique count of name
+agg_name_un<-agg_name_long %>% 
+  mutate(val=case_when(
+    val>=1~1, TRUE~val))
+
+
+#############################################
+#########   aggregate at partner level
+agg_partner<-df_wider %>% 
+  select(indicator, operating_unit, partner, no_issue, issue) %>% 
+  group_by(indicator,operating_unit, partner ) %>% 
+  summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
+  view
+
+agg_partner_long<-df_long_cat %>% 
+  select(indicator, operating_unit, partner, category, val) %>% 
+  group_by(indicator,operating_unit, partner, category ) %>% 
+  summarize_at(vars(val), sum, na.rm=TRUE) %>% 
+  view
+
+#unique count of partner
+agg_partner_un<-agg_partner_long %>% 
+  mutate(val=case_when(
+    val>=1~1, TRUE~val))
+
+
+#############################################
+#########   aggregate at OU level
+agg_ou<-df_wider %>% 
+  select(indicator, operating_unit, no_issue, issue) %>% 
+  group_by(indicator,operating_unit ) %>% 
+  summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
+  view
+
+agg_ou_cat<-df_long_cat %>% 
+  select(indicator, operating_unit, partner, category, val) %>% 
+  group_by(indicator,operating_unit, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
   view
 
 
+#aggregate to OU by unique parter mentions
+agg_ou_partner_un<-agg_partner_un %>% 
+  select(indicator, operating_unit, category, val) %>% 
+  group_by(indicator,operating_unit, category ) %>% 
+  summarize_at(vars(val), sum, na.rm=TRUE) %>% 
+  view
 
+#####################################################################
 
-
-my_labels <- seq(2004, 2020, 1) %>%
-  substr(., 3, 4) %>% paste0("FY", .)
-#Adjust FY labels
-my_labels <- seq(2004, 2020, 1) %>%
-  substr(., 3, 4) %>% paste0("FY", .)
-# Keep every 4th label but replace those in between with blanks
-cust_labels <- nrsmisc::every_nth(my_labels, 4, inverse = T)
-# Add this to your ggplot
-scale_x_discrete(labels = cust_labels)
-
-
-
-
-
-
-#Visualize OUs for 1 indicator
-agg %>% 
-  subset(indicator=="TX_CURR") %>% 
-  ggplot(aes(x=period, y=val)) +
-  geom_col()+
-  si_style()+
-  facet_wrap(~operating_unit)
-# only the last 5 OUs have the period on the y axis. 
-#Also the period is squished - can it be turned sideways?
-
-
-#visualize all indicators for 1 OU
-agg %>% 
-  subset(operating_unit=="South Africa") %>% 
-  ggplot(aes(x=period, y=val)) +
+# visualize all indicators for 1 OU
+agg_ou %>%
+  ggplot(aes(y=reorder(operating_unit, issue), x=issue)) +
   geom_col()+
   si_style()+
   facet_wrap(~indicator)+
-  ggtitle("Migration Impact on South Africa Treatment Indicators")
+  ggtitle("Number of TX_CURR issues reported by OU")
+#image OU_ISSUE_TX_CURR
+
+#unique partner issues by ou
+agg_ou_partner_un %>%
+  ggplot(aes(y=reorder(operating_unit, val), x=val)) +
+  geom_col()+
+  si_style()+
+  facet_wrap(~indicator)+
+  ggtitle("Number of Partners reporting TX_CURR issues by OU")
+#image OU_ISSUE_TX_CURR
+
+
+
+agg_ou_cat %>%
+  ggplot(aes(y=reorder_within(operating_unit, val, category), x=val)) +
+  geom_col()+
+  si_style()+
+  scale_y_reordered()+
+  facet_wrap(~category, scales="free_y")+
+  ggtitle("Number of TX_CURR narratives reported by OU, by issue or no issue")
+#OU_ISSUE_NOISSUE_TX_CURR
+
+
+
+agg_ou_cat %>%
+  ggplot(aes(y=reorder(operating_unit, val), x=val, fill=category)) +
+  geom_col()+
+  si_style()+
+  facet_wrap(~indicator)+
+  ggtitle("Number of TX_CURR issues reported by OU")
+#image OU_ISSUE_NOISSUE_TX_CURR_stackedbar
+
+
+agg_ou_cat %>%
+  mutate(ou_order = ifelse(category == "issue", val, 0)) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, ou_order, max), x=val)) +
+  geom_col()+
+  si_style()+
+  facet_wrap(~category, scales="free_y")+
+  ggtitle("Number of TX_CURR narratives reported by OU, by issue or no issue")
+#image OU_ISSUE_NOISSUE_TX_CURR_order
+
+
+
+#####################################################
+###########     parter level visuals
+
+#number of parters reporting issues (uniqu partners) - also bad ordering
+ agg_partner_un%>%
+  ggplot(aes(y=reorder_within(operating_unit, val, category), x=val)) +
+  geom_col()+
+  si_style()+
+  scale_y_reordered()+
+  facet_wrap(~category, scales="free_y")+
+  ggtitle("Number of Partners Reporting TX_CURR Issues by OU")
+#image
+
+#bad ordering - needs group or something
+agg_partner_un %>%
+  ggplot(aes(y=reorder(operating_unit, val), x=val, fill=category)) +
+  geom_col()+
+  si_style()+
+  facet_wrap(~indicator)+
+  ggtitle("Number of Partners Reporting TX_CURR Issues by O")
+#image 
+
+ 
+ 
+ 
+
+
+
+
+# visualize by name
+agg_name_un %>%
+  filter(category=="issue", operating_unit==c("South Africa")) %>% 
+  ggplot(aes(y=reorder(name, val), x=val)) +
+  geom_col()+
+  si_style()+
+  # facet_wrap(~name)+
+  ggtitle("South Africa partners report most TX_CURR issues in facility headcount")
+#image SA_ISSUES_TX_CURR_NAMES
+
+
+# visualize by name
+agg_name_un %>%
+  filter(category=="issue") %>% 
+  ggplot(aes(y=reorder(name, val), x=val)) +
+  geom_col()+
+  si_style()+
+  # facet_wrap(~operating_unit)+
+  ggtitle("Partners report most TX_CURR issues in COVID, MMD & Data Reporting")
+#image OU_ISSUES_TX_CURR_NAMES
+
+# visualize by name
+agg_name_un %>%
+  filter(category=="issue") %>% 
+  # filter(operating_unit=="South Africa" | operating_unit=="Kenya"| operating_unit
+  #        =="Asia Region") %>%
+  filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
+  ggplot(aes(y=reorder(name, val), x=val, fill=name)) +
+  geom_col()+
+  si_style()+
+   facet_wrap(~operating_unit)+
+  ggtitle("Unique reporting issues by OU")
+#image OU_ISSUES_TX_CURR_NAMES
+
+
+ ############################################################3
+####### unused yet
+
+
 
 
 agg %>% 
