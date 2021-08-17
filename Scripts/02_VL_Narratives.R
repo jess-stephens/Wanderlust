@@ -9,11 +9,15 @@ df <-read_xlsx("NarrativeAnalysis_20210526_TX_CURR.xlsx", sheet="TX_CURR",
   glimpse(df)
 names(df)
 
-df %>%
-  distinct(operating_unit) %>%
-  pull()
+df_PVLS <-read_xlsx("NarrativeAnalysis_20210526_TX_PVLS.xlsx", sheet="TX_PVLS",
+               col_types = "text") %>% 
+  janitor::clean_names()
+glimpse(df)
+names(df)
 
-df2<-df %>% 
+df2<-bind_rows(df, df_PVLS)
+
+df3<-df2 %>% 
   #drop extra info after "_" in operating unit
   mutate(operating_unit= gsub("\\_.*","",operating_unit)%>%
          str_trim(side = "both")) %>% 
@@ -23,18 +27,15 @@ df2<-df %>%
   #remove additional bracket from "[OU"
   mutate(mechanism=  case_when(
     mechanism=="[OU"~"OU",
-    TRUE~mechanism)) 
+    TRUE~mechanism) ) 
 
-  
-df2 %>%
-  distinct(mechanism) %>%
-  pull()
-
-
-df_long <- df2 %>% 
+df_long <- df3 %>% 
   pivot_longer(
-    cols= total_tx_curr_mech:kudos,  
-    values_to="val")
+    cols= total_tx_curr_mech:equipment,  
+    values_to="val") %>% 
+  mutate(val=case_when((indicator=="TX_PVLS"& val=="n")~"i", 
+                       (indicator=="TX_PVLS" & val=="p")~"n", 
+                       TRUE~val))
 
 glimpse(df_long)
 names(df_long)
@@ -43,9 +44,8 @@ df_wider<- df_long %>%
   pivot_wider(
     names_from = val, 
     values_from=val  ) %>% 
-  select(!c("389024", "313145", "85440", "NA")) %>% 
-  mutate(n=case_when(
-      n=="n"~"1", TRUE~n),
+  select(!c("389024", "313145", "85440", "NA", "1", "0")) %>% 
+  mutate(n=case_when( n=="n"~"1", TRUE~n),
     i= case_when(
       i=="i"~"1", TRUE~i), 
     n=as.numeric(n), 
@@ -54,19 +54,6 @@ df_wider<- df_long %>%
 
 glimpse(df_wider)
 names(df_wider)
-
-df_long_Cat<- df_wider %>% 
-  pivot_wider(
-    names_from = val, 
-    values_from=val  ) %>% 
-  select(!c("389024", "313145", "85440", "NA")) %>% 
-  mutate(n=case_when(
-    n=="n"~"1", TRUE~n),
-    i= case_when(
-      i=="i"~"1", TRUE~i), 
-    n=as.numeric(n), 
-    i=as.numeric(i)) %>% 
-  rename(no_issue=n, issue=i)
 
 df_long_cat<- df_wider %>% 
   pivot_longer(
@@ -116,6 +103,10 @@ agg_partner_un<-agg_partner_long %>%
   mutate(val=case_when(
     val>=1~1, TRUE~val))
 
+agg_partner_un_collapse<-agg_partner_un %>% 
+  group_by(indicator, operating_unit, category) %>% 
+  summarise(val = sum(val))
+
 
 #############################################
 #########   aggregate at OU level
@@ -141,72 +132,147 @@ agg_ou_partner_un<-agg_partner_un %>%
 
 #####################################################################
 
-# visualize all indicators for 1 OU
-agg_ou %>%
-  ggplot(aes(y=reorder(operating_unit, issue), x=issue)) +
-  geom_col()+
-  si_style()+
+# # visualize all indicators for 1 OU
+# agg_ou %>%
+#   ggplot(aes(y=reorder(operating_unit, issue), x=issue)) +
+#   geom_col()+
+#   si_style()+
+#   facet_wrap(~indicator)+
+#   ggtitle("Number of TX_CURR issues reported by OU")
+# #image OU_ISSUE_TX_CURR
+# 
+# #unique partner issues by ou
+# agg_ou_partner_un %>%
+#   ggplot(aes(y=reorder(operating_unit, val), x=val)) +
+#   geom_col()+
+#   si_style()+
+#   facet_wrap(~indicator)+
+#   ggtitle("Number of Partners reporting TX_CURR issues by OU")
+# #image OU_ISSUE_TX_CURR
+# 
+# 
+# 
+# agg_ou_cat %>%
+#   ggplot(aes(y=reorder_within(operating_unit, val, category), x=val)) +
+#   geom_col()+
+#   si_style()+
+#   scale_y_reordered()+
+#   facet_wrap(~category, scales="free_y")+
+#   ggtitle("Number of TX_CURR narratives reported by OU, by issue or no issue")
+# #OU_ISSUE_NOISSUE_TX_CURR
+# 
+# 
+# agg_ou_cat %>%
+#   mutate(ou_order = ifelse(category == "issue", val, 0)) %>% 
+#   ggplot(aes(y=fct_reorder(operating_unit, ou_order, max), x=val)) +
+#   geom_col()+
+#   si_style()+
+#   facet_wrap(~category, scales="free_y")+
+#   ggtitle("Number of TX_CURR narratives reported by OU, by issue or no issue")
+# #image OU_ISSUE_NOISSUE_TX_CURR_order
+
+
+
+si_rampr("burnt_siennas") %>% show_col()
+si_rampr("moody_blues") %>% show_col()
+
+
+
+v1<-
+  agg_ou_cat %>%
+  filter(indicator %in% c("TX_PVLS")) %>% 
+   mutate(ou_order = ifelse((category == "issue"&indicator=="TX_PVLS"), val, 0)) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, ou_order, max)))+
+  geom_col(aes( x=val, fill=fct_rev(category)))+ 
+  # si_style()+
+  si_style_xgrid()+
+   facet_wrap(~indicator)+
+  scale_fill_manual(values = c('#2F2E6F', '#CFC3FF'))+ 
+  labs(x = NULL, y = NULL)+
+    # title = "FY21 Q3: NARRATIVES REPORTING ISSUES AND NO ISSUES BY OU",
+     # title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
+    # title = "FY21 Q3: NARRATIVES REPORTING 
+    # <span style='color:#923417;'>ISSUE</span>, AND
+    # <span style='color:#FFB790;'>NO ISSUE</span> BY OU
+    # </span>",
+       # caption = "Source: FY21 Q3 Narratives") +
+  theme(legend.position = "none")
+
+
+v2<-
+  agg_ou_cat %>%
+  filter(indicator %in% c("TX_CURR")) %>% 
+  mutate(ou_order = ifelse((category == "issue"&indicator=="TX_CURR"), val, 0)) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, ou_order, max)))+
+  geom_col(aes( x=val, fill=fct_rev(category)))+ 
+  # si_style()+
+  si_style_xgrid()+
   facet_wrap(~indicator)+
-  ggtitle("Number of TX_CURR issues reported by OU")
-#image OU_ISSUE_TX_CURR
-
-#unique partner issues by ou
-agg_ou_partner_un %>%
-  ggplot(aes(y=reorder(operating_unit, val), x=val)) +
-  geom_col()+
-  si_style()+
-  facet_wrap(~indicator)+
-  ggtitle("Number of Partners reporting TX_CURR issues by OU")
-#image OU_ISSUE_TX_CURR
-
-
-
-agg_ou_cat %>%
-  ggplot(aes(y=reorder_within(operating_unit, val, category), x=val)) +
-  geom_col()+
-  si_style()+
-  scale_y_reordered()+
-  facet_wrap(~category, scales="free_y")+
-  ggtitle("Number of TX_CURR narratives reported by OU, by issue or no issue")
-#OU_ISSUE_NOISSUE_TX_CURR
+  scale_fill_manual(values = c('#FFB790', '#923417'))+ 
+  # ggtitle("TX_CURR issues reported by OU")+
+  # labs(x = "Count of Narratives", y = NULL)+
+  # annotation_custom(grobTree(t1, t2, t3)) +
+  labs(x = NULL, y = NULL)+
+  # title = "FY21 Q3: NARRATIVES REPORTING ISSUES AND NO ISSUES BY OU",
+  # title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
+  # title = "FY21 Q3: NARRATIVES REPORTING 
+  # <span style='color:#923417;'>ISSUE</span>, AND
+  # <span style='color:#FFB790;'>NO ISSUE</span> BY OU
+  # </span>",
+  # caption = "Source: FY21 Q3 Narratives") +
+  theme(legend.position = "none")
 
 
+#   theme_classic(base_size = 24) +
+#   theme(plot.title = element_markdown(lineheight = 1.1),
+#         plot.subtitle = element_markdown(lineheight = 1.1)
+#   
+#   theme(legend.position = 'none',
+#         # add some extra margin on top
+#         plot.margin = unit(c(4, 1, 1, 1), "lines"))
+# labs(title = "New plot <b style='color:#009E73'>title</b>", 
+#      subtitle = "A <b style='color:#D55E00'>subtitle</b>") +
 
-agg_ou_cat %>%
-  ggplot(aes(y=reorder(operating_unit, val), x=val, fill=category)) +
-  geom_col()+
-  si_style()+
-  facet_wrap(~indicator)+
-  ggtitle("Number of TX_CURR issues reported by OU")
+
+(v1+ v2) + plot_layout(widths  = c(1, 1))+
+  plot_annotation(
+     title = "FY21 Q3: NARRATIVES REPORTING ISSUES AND NO ISSUES BY OU",
+     # title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
+    # title = "FY21 Q3: NARRATIVES REPORTING
+    # <span style='color:#923417;'>ISSUE</span>, AND
+    # <span style='color:#FFB790;'>NO ISSUE</span> BY OU
+    # </span>",
+    caption = "Source: FY21 Q3 Narratives") 
+
 #image OU_ISSUE_NOISSUE_TX_CURR_stackedbar
-
-
-agg_ou_cat %>%
-  mutate(ou_order = ifelse(category == "issue", val, 0)) %>% 
-  ggplot(aes(y=fct_reorder(operating_unit, ou_order, max), x=val)) +
-  geom_col()+
-  si_style()+
-  facet_wrap(~category, scales="free_y")+
-  ggtitle("Number of TX_CURR narratives reported by OU, by issue or no issue")
-#image OU_ISSUE_NOISSUE_TX_CURR_order
 
 
 
 #####################################################
 ###########     parter level visuals
+# 
+# #number of parters reporting issues (uniqu partners) - also bad ordering
+#  agg_partner_un%>%
+#   ggplot(aes(y=reorder_within(operating_unit, val, category), x=val)) +
+#   geom_col()+
+#   si_style()+
+#   scale_y_reordered()+
+#   facet_wrap(~category, scales="free_y")+
+#   ggtitle("Number of Partners Reporting TX_CURR Issues by OU")
+# #image
 
-#number of parters reporting issues (uniqu partners) - also bad ordering
- agg_partner_un%>%
-  ggplot(aes(y=reorder_within(operating_unit, val, category), x=val)) +
-  geom_col()+
-  si_style()+
-  scale_y_reordered()+
-  facet_wrap(~category, scales="free_y")+
-  ggtitle("Number of Partners Reporting TX_CURR Issues by OU")
-#image
+# agg_partner_un %>%
+#   mutate(ou_order = ifelse(category == "issue", val, 0)) %>% 
+#   ggplot(aes(y=fct_reorder(operating_unit, ou_order, max), x=val)) +
+#   geom_col()+
+#   si_style()+
+#   facet_wrap(~category, scales="free_y")+
+#   ggtitle("Number of Partners Reporting TX_CURR narrative Issue or no issue, by OU")
+
 
 #bad ordering - needs group or something
 agg_partner_un %>%
+  mutate(ou_order = ifelse(category == "issue", val, 0)) %>% 
   ggplot(aes(y=reorder(operating_unit, val), x=val, fill=category)) +
   geom_col()+
   si_style()+
@@ -215,32 +281,102 @@ agg_partner_un %>%
 #image 
 
  
- 
+
+y1<-
+  agg_partner_un_collapse %>%
+  filter(indicator %in% c("TX_PVLS")) %>% 
+  mutate(ou_order = ifelse((category == "issue"& indicator=="TX_PVLS"), val, 0)) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, ou_order, max)))+
+  geom_col(aes( x=val, fill=fct_rev(category)))+ 
+  si_style_xgrid()+
+  facet_wrap(~indicator)+
+  scale_fill_manual(values =  c('#CFC3FF','#2F2E6F'))+ 
+  labs(x = NULL, y = NULL)+
+  theme(legend.position = "none")
+
+
+y2<-
+  agg_partner_un_collapse %>%
+  filter(indicator %in% c("TX_CURR")) %>% 
+  mutate(ou_order = ifelse((category == "issue"&indicator=="TX_CURR"), val, 0)) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, ou_order, max)))+
+  geom_col(aes( x=val, fill=fct_rev(category)))+ 
+  # si_style()+
+  si_style_xgrid()+
+  facet_wrap(~indicator)+
+  scale_fill_manual(values = c('#FFB790', '#923417'))+ 
+  labs(x = NULL, y = NULL)+
+  theme(legend.position = "none")
+
+
+
+(y1+ y2) + plot_layout(widths  = c(1, 1))+
+  plot_annotation(
+    title = "FY21 Q3: PARTNERS REPORTING NARRATIVE ISSUES AND NO ISSUES BY OU",
+    # title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
+    # title = "FY21 Q3: NARRATIVES REPORTING
+    # <span style='color:#923417;'>ISSUE</span>, AND
+    # <span style='color:#FFB790;'>NO ISSUE</span> BY OU
+    # </span>",
+    caption = "Source: FY21 Q3 Narratives") 
+
  
 
 
+# # visualize by name
+# agg_name_un %>%
+#   filter(category=="issue", operating_unit==c("South Africa")) %>% 
+#   ggplot(aes(y=reorder(name, val), x=val)) +
+#   geom_col()+
+#   si_style()+
+#   # facet_wrap(~name)+
+#   ggtitle("South Africa partners report most TX_CURR issues in facility headcount")
+# #image SA_ISSUES_TX_CURR_NAMES
 
 
 # visualize by name
-agg_name_un %>%
-  filter(category=="issue", operating_unit==c("South Africa")) %>% 
+z1<-agg_name_un %>%
+  filter(category=="issue" & indicator=="TX_PVLS" ) %>% 
+  filter(name=="tx_pvls_covid"|name=="reagent_stockout"|name=="results_returned"|name=="equipment"|name=="data_reporting"|name=="backlogs"|name=="sample_collection"|name=="sample_transport_testing"|name=="staffing"|name=="resources_reallocation"|name=="kudos") %>% 
+  # filter(val>0) %>% 
   ggplot(aes(y=reorder(name, val), x=val)) +
-  geom_col()+
-  si_style()+
-  # facet_wrap(~name)+
-  ggtitle("South Africa partners report most TX_CURR issues in facility headcount")
-#image SA_ISSUES_TX_CURR_NAMES
+  geom_col(fill="#7069B2")+  
+si_style_xgrid()+
+  # si_style()+
+    facet_wrap(~indicator)+
+  labs(x = NULL, y = NULL)+
+  theme(legend.position = "none")
+
+z2<-agg_name_un %>%
+  filter(category=="issue" & indicator=="TX_CURR" ) %>% 
+  filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="general_impact_on_vl"|name=="total_tx_curr_mech"|name=="resources_reallocation"|name=="staffing") %>% 
+    # filter(val>0) %>% 
+  ggplot(aes(y=reorder(name, val), x=val)) +
+  geom_col(fill="#BF5A39")+  
+  si_style_xgrid()+
+  # si_style()+
+  facet_wrap(~indicator)+
+  labs(x = NULL, y = NULL)+
+  theme(legend.position = "none")
 
 
-# visualize by name
-agg_name_un %>%
-  filter(category=="issue") %>% 
-  ggplot(aes(y=reorder(name, val), x=val)) +
-  geom_col()+
-  si_style()+
-  # facet_wrap(~operating_unit)+
-  ggtitle("Partners report most TX_CURR issues in COVID, MMD & Data Reporting")
-#image OU_ISSUES_TX_CURR_NAMES
+(z1+ z2) + plot_layout(widths  = c(1, 1))+
+  plot_annotation(
+    title = "FY21 Q3: PARTNERS REPORTING NARRATIVE ISSUES AND NO ISSUES BY ISSUE TYPE",
+    caption = "Source: FY21 Q3 Narratives") 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # visualize by name
 agg_name_un %>%
@@ -249,11 +385,43 @@ agg_name_un %>%
   #        =="Asia Region") %>%
   filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
   ggplot(aes(y=reorder(name, val), x=val, fill=name)) +
+  geom_col(width=1)+
+  si_style()+
+  si_style_xgrid()+
+   facet_wrap(~operating_unit)+
+  ggtitle("Unique reporting issues by OU")+
+  labs(x = NULL, y = NULL)+
+ theme(legend.position = "bottom")+
+   theme(axis.title.y=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks.y=element_blank(), 
+      legend.title = element_blank())
+#image OU_ISSUES_TX_CURR_NAMES
+
+
+
+
+agg_name_un %>%
+  
+  select(indicator, operating_unit, category, val) %>% 
+  group_by(indicator,operating_unit, category ) %>% 
+  summarize_at(vars(val), sum, na.rm=TRUE) %>%  
+mutate(ou_order = ifelse((indicator=="TX_CURR"), val, 0)) %>% 
+  
+  # geom_col(aes( x=val, fill=fct_rev(category)))+ 
+  
+  # filter(category=="issue" & indicator=="TX_CURR" ) %>% 
+  # filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
+   # mutate(ou_order = ifelse((category == "issue"&indicator=="TX_CURR"), val, 0)) %>% 
+   ggplot(aes(y=fct_reorder(operating_unit, ou_order, max), x=val))+
+  # geom_col()+
+   # ggplot(aes(y=reorder(name, val), x=val, fill=name)) +
   geom_col()+
   si_style()+
-   facet_wrap(~operating_unit)+
-  ggtitle("Unique reporting issues by OU")
+  facet_wrap(~operating_unit)+
+  ggtitle("Unique reporting issues by OU") 
 #image OU_ISSUES_TX_CURR_NAMES
+
 
 
  ############################################################3

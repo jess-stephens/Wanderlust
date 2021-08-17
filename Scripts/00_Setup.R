@@ -16,3 +16,21 @@ library(dplyr)
 library(tidytext)
 # install.packages("scales")
 library(scales) 
+
+library(grid)
+# devtools::install_github("clauswilke/ggtext")
+library(ggtext)
+
+ # install.packages("ggridges")
+ # install.packages("glue")
+# install.packages("patchwork")
+# install.packages("RColorBrewer")
+# install.packages("vroom")
+
+library(ggridges)
+library(glue)
+library(patchwork)
+library(RColorBrewer)
+library(vroom)
+
+
