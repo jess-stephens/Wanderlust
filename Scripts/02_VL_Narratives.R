@@ -1,17 +1,20 @@
 source("Scripts/00_Setup.R")
 
 
-setwd("C:/Users/jStephens/Documents/ICPI/Narrative Analysis")
+#setwd("C:/Users/jStephens/Documents/ICPI/Narrative Analysis")
 
-df <-read_xlsx("NarrativeAnalysis_20210526_TX_CURR.xlsx", sheet="TX_CURR",
+df <- read_xlsx("Data/NarrativeAnalysis_20210526_TX_CURR.xlsx", sheet="TX_CURR",
                col_types = "text") %>% 
   janitor::clean_names()
+
   glimpse(df)
+  
 names(df)
 
-df_PVLS <-read_xlsx("NarrativeAnalysis_20210526_TX_PVLS.xlsx", sheet="TX_PVLS",
+df_PVLS <-read_xlsx("Data/NarrativeAnalysis_20210526_TX_PVLS.xlsx", sheet="TX_PVLS",
                col_types = "text") %>% 
   janitor::clean_names()
+
 glimpse(df)
 names(df)
 
@@ -19,31 +22,31 @@ df2<-bind_rows(df, df_PVLS)
 
 df3<-df2 %>% 
   #drop extra info after "_" in operating unit
-  mutate(operating_unit= gsub("\\_.*","",operating_unit)%>%
+  mutate(operating_unit = gsub("\\_.*", "", operating_unit)%>%
          str_trim(side = "both")) %>% 
   #keep only number in mechanism (everying before the first space)
-  mutate(mechanism= gsub("\\ ..*","",mechanism) %>% 
+  mutate(mechanism = gsub("\\ ..*","",mechanism) %>% 
            str_trim(side = "both")) %>% 
   #remove additional bracket from "[OU"
-  mutate(mechanism=  case_when(
-    mechanism=="[OU"~"OU",
+  mutate(mechanism =  case_when(
+    mechanism == "[OU"~"OU",
     TRUE~mechanism) ) 
 
 df_long <- df3 %>% 
   pivot_longer(
-    cols= total_tx_curr_mech:equipment,  
-    values_to="val") %>% 
-  mutate(val=case_when((indicator=="TX_PVLS"& val=="n")~"i", 
+    cols = total_tx_curr_mech:equipment,  
+    values_to = "val") %>% 
+  mutate(val = case_when((indicator=="TX_PVLS"& val=="n")~"i", 
                        (indicator=="TX_PVLS" & val=="p")~"n", 
                        TRUE~val))
 
 glimpse(df_long)
 names(df_long)
 
-df_wider<- df_long %>% 
+df_wider <- df_long %>% 
   pivot_wider(
     names_from = val, 
-    values_from=val  ) %>% 
+    values_from = val  ) %>% 
   select(!c("389024", "313145", "85440", "NA", "1", "0")) %>% 
   mutate(n=case_when( n=="n"~"1", TRUE~n),
     i= case_when(
@@ -55,7 +58,7 @@ df_wider<- df_long %>%
 glimpse(df_wider)
 names(df_wider)
 
-df_long_cat<- df_wider %>% 
+df_long_cat <- df_wider %>% 
   pivot_longer(
     cols= no_issue:issue,  
     names_to="category",
@@ -234,15 +237,16 @@ v2<-
 #      subtitle = "A <b style='color:#D55E00'>subtitle</b>") +
 
 
-(v1+ v2) + plot_layout(widths  = c(1, 1))+
+(v1 + v2) + plot_layout(widths  = c(1, 1))+
   plot_annotation(
-     title = "FY21 Q3: NARRATIVES REPORTING ISSUES AND NO ISSUES BY OU",
-     # title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
+     #title = "FY21 Q3: NARRATIVES REPORTING ISSUES AND NO ISSUES BY OU",
+      title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
     # title = "FY21 Q3: NARRATIVES REPORTING
     # <span style='color:#923417;'>ISSUE</span>, AND
     # <span style='color:#FFB790;'>NO ISSUE</span> BY OU
     # </span>",
-    caption = "Source: FY21 Q3 Narratives") 
+    caption = "Source: FY21 Q3 Narratives",
+    theme = theme(plot.title = element_markdown())) 
 
 #image OU_ISSUE_NOISSUE_TX_CURR_stackedbar
 
@@ -310,15 +314,16 @@ y2<-
 
 
 
-(y1+ y2) + plot_layout(widths  = c(1, 1))+
+(y1 + y2) + plot_layout(widths  = c(1, 1))+
   plot_annotation(
-    title = "FY21 Q3: PARTNERS REPORTING NARRATIVE ISSUES AND NO ISSUES BY OU",
-    # title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
+    #title = "FY21 Q3: PARTNERS REPORTING NARRATIVE ISSUES AND NO ISSUES BY OU",
+     title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
     # title = "FY21 Q3: NARRATIVES REPORTING
     # <span style='color:#923417;'>ISSUE</span>, AND
     # <span style='color:#FFB790;'>NO ISSUE</span> BY OU
     # </span>",
-    caption = "Source: FY21 Q3 Narratives") 
+    caption = "Source: FY21 Q3 Narratives",
+    theme = theme(plot.title = element_markdown())) 
 
  
 
@@ -339,6 +344,7 @@ z1<-agg_name_un %>%
   filter(category=="issue" & indicator=="TX_PVLS" ) %>% 
   filter(name=="tx_pvls_covid"|name=="reagent_stockout"|name=="results_returned"|name=="equipment"|name=="data_reporting"|name=="backlogs"|name=="sample_collection"|name=="sample_transport_testing"|name=="staffing"|name=="resources_reallocation"|name=="kudos") %>% 
   # filter(val>0) %>% 
+  mutate(name = str_replace_all(name, "_"," ")) %>% 
   ggplot(aes(y=reorder(name, val), x=val)) +
   geom_col(fill="#7069B2")+  
 si_style_xgrid()+
@@ -351,6 +357,7 @@ z2<-agg_name_un %>%
   filter(category=="issue" & indicator=="TX_CURR" ) %>% 
   filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="general_impact_on_vl"|name=="total_tx_curr_mech"|name=="resources_reallocation"|name=="staffing") %>% 
     # filter(val>0) %>% 
+  mutate(name = str_replace_all(name, "_"," ")) %>% 
   ggplot(aes(y=reorder(name, val), x=val)) +
   geom_col(fill="#BF5A39")+  
   si_style_xgrid()+
@@ -362,7 +369,8 @@ z2<-agg_name_un %>%
 
 (z1+ z2) + plot_layout(widths  = c(1, 1))+
   plot_annotation(
-    title = "FY21 Q3: PARTNERS REPORTING NARRATIVE ISSUES AND NO ISSUES BY ISSUE TYPE",
+    #title = "FY21 Q3: PARTNERS REPORTING NARRATIVE ISSUES AND NO ISSUES BY ISSUE TYPE",
+    title = "TYPE AND # of NARRATIVE ISSUES REPORTED BY PARTNERS",
     caption = "Source: FY21 Q3 Narratives") 
 
 

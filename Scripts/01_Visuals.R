@@ -1,8 +1,9 @@
 source("Scripts/00_setup.R")
 
-setwd("C:/Users/jStephens/Documents/Migration/Wanderlust")
+#setwd("C:/Users/jStephens/Documents/Migration/Wanderlust") # BK: This repo is project and working directory is already set to "./"
 
-df <-read_xlsx("Data/20210707 Migration Narratives FY20Q2-FY21Q2.xlsx", sheet="data")
+# BK: where is this file ?
+df <- read_xlsx("Data/20210707 Migration Narratives FY20Q2-FY21Q2.xlsx", sheet="data")
 
 
 agg<-df %>% 
