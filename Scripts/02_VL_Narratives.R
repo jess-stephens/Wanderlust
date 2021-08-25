@@ -107,6 +107,15 @@ agg_name_un<-agg_name_long %>%
     val>=1~1, TRUE~val))
 
 
+#aggregate to names by unique partner mentions within ou
+agg_name_un_collapse<-agg_name_un %>% 
+  group_by(indicator, operating_unit,name, category) %>% 
+  summarise(val = sum(val))
+
+
+
+
+
 #############################################
 #########   aggregate at partner level
 agg_partner<-df_wider %>% 
@@ -146,7 +155,7 @@ agg_ou_cat<-df_long_cat %>%
   view
 
 
-#aggregate to OU by unique parter mentions
+#aggregate to OU by unique partner mentions
 agg_ou_partner_un<-agg_partner_un %>% 
   select(indicator, operating_unit, category, val) %>% 
   group_by(indicator,operating_unit, category ) %>% 
@@ -312,7 +321,6 @@ y2<-
   theme(legend.position = "none")
 
 
-
 (y1 + y2) + plot_layout(widths  = c(1, 1))+
   plot_annotation(
     title = "FY21 Q3: TX_PVLS AND TX_CURR NARRATIVES REVIEWED FOR KEY TERMS BY PARTNERS WITHIN OU",
@@ -321,9 +329,11 @@ y2<-
     theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown())) 
 
 ######################################
-#       VISUALS - NAME CATEGORY LEVEL
+#       VISUALS - NAME (key term)  LEVEL
 ######################################
 
+#########################
+# count of issues for each name/term
 
 z1<-agg_name_un %>%
   filter(category=="issue" & indicator=="TX_PVLS" ) %>% 
@@ -338,7 +348,7 @@ z1<-agg_name_un %>%
          name=="Tx pvls covid"~"COVID-19",
          name=="Total tx curr mech"~"Total TX_CURR Mech",
          TRUE~name) ) %>% 
-  ggplot(aes(y=reorder(name, val), x=val, alpha=.8)) +
+  ggplot(aes(y=reorder(name, val), x=val)) +
   geom_col(fill="#2F2E6F")+  
 si_style_xgrid()+
     facet_wrap(~indicator)+
@@ -358,7 +368,7 @@ z2<-agg_name_un %>%
           name=="Arv stockout"~"ARV stockout", 
           name=="General impact on vl"~"General impact on VL",          
           TRUE~name)) %>% 
-   ggplot(aes(y=reorder(name, val), x=val, alpha=.8)) +
+   ggplot(aes(y=reorder(name, val), x=val)) +
   geom_col(fill="#923417")+  
   si_style_xgrid()+
   facet_wrap(~indicator)+
@@ -369,39 +379,17 @@ z2<-agg_name_un %>%
 (z1+ z2) + plot_layout(widths  = c(1, 1))+
   plot_annotation(
     title = "FY21 Q3: TX_PVLS AND TX_CURR NARRATIVES REVIEWED BY KEY TERMS WITHIN PARTNERS",
-    subtitle = "The largest number of <b style='color:#2F2E6F'>TX_PVLS issues</b> mentioned Reagent Stockout, while the largest number of <b style='color:#923417'>TX_CURR issues</b> mentioned MMD, when summarizing narratives by partners rather than by OU",
+    subtitle = "The largest number of partners described <b style='color:#2F2E6F'>TX_PVLS issues</b> mentioned Reagent Stockout, while the largest number of <b style='color:#923417'>TX_CURR issues</b> mentioned MMD",
     caption = "Source: FY21 Q3 Narratives",
     theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
+#, when summarizing narratives by partners rather than by OU
 
 
+####################################
+# names faceted out by OU
 
-
-# TX_PVLS colors
-si_rampr("moody_blues") %>% show_col()
-# 2F2E6F - DARK PURPLE
-# CFC3FF - light purple
-# 7069B2 - middle
-
-
-# TX_CURR Colors
-si_rampr("burnt_siennas") %>% show_col()
-# 923417 - DARK BROWN/ORANGE
-# FFB790 - light orange
-# BF5A39 - middle color
-
-
-
-
-
-
-
-
-
-# visualize by name
 agg_name_un %>%
   filter(category=="issue") %>% 
-  # filter(operating_unit=="South Africa" | operating_unit=="Kenya"| operating_unit
-  #        =="Asia Region") %>%
   filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
   ggplot(aes(y=reorder(name, val), x=val, fill=name)) +
   geom_col(width=1)+
@@ -415,53 +403,40 @@ agg_name_un %>%
       axis.text.y=element_blank(),
       axis.ticks.y=element_blank(), 
       legend.title = element_blank())
-#image OU_ISSUES_TX_CURR_NAMES
 
 
-
-
-#facet by name
+####################################
+# OU faceted out by names
 agg_name_un %>%
   filter(category=="issue" & indicator=="TX_CURR") %>% 
-  # filter(operating_unit=="South Africa" | operating_unit=="Kenya"| operating_unit
-  #        =="Asia Region") %>%
+  filter(val>0) %>% 
   filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
-  ggplot(aes(y=reorder_within(operating_unit, val, name), x=val, fill=name)) +
-  geom_col(width=1)+
+  mutate(name = str_replace_all(name, "_"," "),
+         name=str_to_sentence(name), 
+         name=case_when(
+           name=="Tx curr covid"~"COVID-19",
+           name=="Total tx curr mech"~"Total TX_CURR Mech",
+           name=="Mmd"~"MMD", 
+           name=="Arv stockout"~"ARV stockout", 
+           name=="General impact on vl"~"General impact on VL",          
+           TRUE~name)) %>% 
+   ggplot(aes(y=fct_reorder(operating_unit, name,max), x=val, fill=name))+
+  # ggplot(aes(y=reorder_within(operating_unit, val, name), x=val, fill=name)) +
+  geom_col(width=.8)+
   si_style()+
   si_style_xgrid()+
   scale_y_reordered()+
   facet_wrap(~name, scales = "free_y")+
-  ggtitle("Unique reporting issues by OU")+
+  # ggtitle("Unique reporting issues by OU")+
   labs(x = NULL, y = NULL)+
   theme(legend.position = "bottom")+
   theme(axis.title.y=element_blank(),
-        # axis.text.y=element_blank(),
         axis.ticks.y=element_blank(), 
-        legend.title = element_blank())
-
-
-
-
-
-agg_name_un %>%
-  
-  select(indicator, operating_unit, category, val) %>% 
-  group_by(indicator,operating_unit, category ) %>% 
-  summarize_at(vars(val), sum, na.rm=TRUE) %>%  
-mutate(ou_order = ifelse((indicator=="TX_CURR"), val, 0)) %>% 
-  
-  # geom_col(aes( x=val, fill=fct_rev(category)))+ 
-  
-  # filter(category=="issue" & indicator=="TX_CURR" ) %>% 
-  # filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
-   # mutate(ou_order = ifelse((category == "issue"&indicator=="TX_CURR"), val, 0)) %>% 
-   ggplot(aes(y=fct_reorder(operating_unit, ou_order, max), x=val))+
-  # geom_col()+
-   # ggplot(aes(y=reorder(name, val), x=val, fill=name)) +
-  geom_col()+
-  si_style()+
-  facet_wrap(~operating_unit)+
-  ggtitle("Unique reporting issues by OU") 
-#image OU_ISSUES_TX_CURR_NAMES
+        legend.title = element_blank(),
+        legend.position = "none") +
+  plot_annotation(
+    title = "FY21 Q3: TX_CURR NARRATIVES REVIEWED BY PARTNER WITHIN KEY TERMS",
+    subtitle = "...",
+    caption = "Source: FY21 Q3 Narratives",
+    theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
 
