@@ -207,7 +207,7 @@ v2<-
   filter(indicator %in% c("TX_CURR")) %>% 
   mutate(ou_order = ifelse((category == "issue"&indicator=="TX_CURR"), val, 0)) %>% 
   ggplot(aes(y=fct_reorder(operating_unit, ou_order, max)))+
-  geom_col(aes( x=val, fill=fct_rev(category)))+ 
+  geom_col(aes( x=val, fill=fct_rev(category)), alpha = 1)+ 
   # si_style()+
   si_style_xgrid()+
   facet_wrap(~indicator)+
@@ -237,7 +237,7 @@ v2<-
 #      subtitle = "A <b style='color:#D55E00'>subtitle</b>") +
 
 
-(v1 + v2) + plot_layout(widths  = c(1, 1))+
+(v1 + v2) + plot_layout(widths  = c(1, 1)) +
   plot_annotation(
      #title = "FY21 Q3: NARRATIVES REPORTING ISSUES AND NO ISSUES BY OU",
       title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
@@ -388,18 +388,18 @@ z2<-agg_name_un %>%
 
 # visualize by name
 agg_name_un %>%
-  filter(category=="issue") %>% 
+  filter(category == "issue", indicator == "TX_CURR") %>% 
   # filter(operating_unit=="South Africa" | operating_unit=="Kenya"| operating_unit
   #        =="Asia Region") %>%
   filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
   ggplot(aes(y=reorder(name, val), x=val, fill=name)) +
-  geom_col(width=1)+
+  geom_col(width=1) +
   si_style()+
-  si_style_xgrid()+
-   facet_wrap(~operating_unit)+
+  si_style_xgrid() +
+  facet_wrap(~operating_unit)+
   ggtitle("Unique reporting issues by OU")+
   labs(x = NULL, y = NULL)+
- theme(legend.position = "bottom")+
+  theme(legend.position = "bottom")+
    theme(axis.title.y=element_blank(),
       axis.text.y=element_blank(),
       axis.ticks.y=element_blank(), 
@@ -410,11 +410,10 @@ agg_name_un %>%
 
 
 agg_name_un %>%
-  
   select(indicator, operating_unit, category, val) %>% 
   group_by(indicator,operating_unit, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>%  
-mutate(ou_order = ifelse((indicator=="TX_CURR"), val, 0)) %>% 
+  mutate(ou_order = ifelse((indicator=="TX_CURR"), val, 0)) %>% 
   
   # geom_col(aes( x=val, fill=fct_rev(category)))+ 
   
