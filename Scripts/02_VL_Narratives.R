@@ -73,13 +73,15 @@ agg_name<-df_wider %>%
    select(indicator, operating_unit, partner, name, no_issue, issue) %>% 
   group_by(indicator, operating_unit, partner, name) %>% 
   summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
-  view
+  ungroup() 
+  
 
 agg_name_long<-df_long_cat %>% 
   select(indicator, operating_unit, partner,name, category, val) %>% 
   group_by(indicator,operating_unit, partner,name, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
-  view
+  ungroup() 
+  
 
 #unique count of name
 agg_name_un<-agg_name_long %>% 
@@ -93,13 +95,15 @@ agg_partner<-df_wider %>%
   select(indicator, operating_unit, partner, no_issue, issue) %>% 
   group_by(indicator,operating_unit, partner ) %>% 
   summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
-  view
+  ungroup()
+  
 
 agg_partner_long<-df_long_cat %>% 
   select(indicator, operating_unit, partner, category, val) %>% 
   group_by(indicator,operating_unit, partner, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
-  view
+  ungroup()
+  
 
 #unique count of partner
 agg_partner_un<-agg_partner_long %>% 
@@ -108,7 +112,8 @@ agg_partner_un<-agg_partner_long %>%
 
 agg_partner_un_collapse<-agg_partner_un %>% 
   group_by(indicator, operating_unit, category) %>% 
-  summarise(val = sum(val))
+  summarise(val = sum(val)) %>% 
+  ungroup()
 
 
 #############################################
@@ -117,13 +122,15 @@ agg_ou<-df_wider %>%
   select(indicator, operating_unit, no_issue, issue) %>% 
   group_by(indicator,operating_unit ) %>% 
   summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
-  view
+  ungroup()
+  
 
 agg_ou_cat<-df_long_cat %>% 
   select(indicator, operating_unit, partner, category, val) %>% 
   group_by(indicator,operating_unit, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
-  view
+  ungroup()
+  
 
 
 #aggregate to OU by unique parter mentions
@@ -131,7 +138,8 @@ agg_ou_partner_un<-agg_partner_un %>%
   select(indicator, operating_unit, category, val) %>% 
   group_by(indicator,operating_unit, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
-  view
+  ungroup()
+  
 
 #####################################################################
 
@@ -314,16 +322,14 @@ y2<-
 
 
 
-(y1 + y2) + plot_layout(widths  = c(1, 1))+
+(y1 + y2) + 
+  plot_layout(widths  = c(1, 1)) +
   plot_annotation(
-    #title = "FY21 Q3: PARTNERS REPORTING NARRATIVE ISSUES AND NO ISSUES BY OU",
-     title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
-    # title = "FY21 Q3: NARRATIVES REPORTING
-    # <span style='color:#923417;'>ISSUE</span>, AND
-    # <span style='color:#FFB790;'>NO ISSUE</span> BY OU
-    # </span>",
+    title = "FY21 Q3: NARRATIVES REPORTING <b style='color:#923417'>ISSUES</b>  AND <b style='color:#FFB790'>NO ISSUES</b> BY OU",
+    subtitle = "Kenya has the most <b style='color:#2F2E6F'>TX_PVLS</b> and <b style='color:#923417'>TX_CURR</b> issues",
     caption = "Source: FY21 Q3 Narratives",
-    theme = theme(plot.title = element_markdown())) 
+    theme = theme(plot.title = element_markdown(),
+                  plot.subtitle = element_markdown())) 
 
  
 
@@ -388,22 +394,39 @@ z2<-agg_name_un %>%
 
 # visualize by name
 agg_name_un %>%
-  filter(category == "issue", indicator == "TX_CURR") %>% 
-  # filter(operating_unit=="South Africa" | operating_unit=="Kenya"| operating_unit
-  #        =="Asia Region") %>%
-  filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
-  ggplot(aes(y=reorder(name, val), x=val, fill=name)) +
-  geom_col(width=1) +
-  si_style()+
+  mutate(
+    operating_unit = case_when(
+      str_detect(operating_unit, "^Western") ~ "WHR",
+      str_detect(operating_unit, "^Dominican") ~ "DR",
+      str_detect(operating_unit, "^Democratic Rep") ~ "DRC",
+      str_detect(operating_unit, "^West Af") ~ "WAR",
+      TRUE ~ operating_unit
+    )) %>% 
+  group_by(indicator, operating_unit, name, category) %>%
+  summarise(val = sum(val, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  filter(category == "issue", 
+         indicator == "TX_CURR", 
+         name %in% c("TX_CURR_COVID", "mmd", "arv_stockout", 
+                     "data_reporting", "general_impact_on_treatment", 
+                     "total_tx_curr_mech", "staffing"),
+         val > 0) %>% 
+  mutate(name = str_replace_all(name, "_", " ")) %>% 
+  ggplot(aes(y=reorder_within(operating_unit, val, name), x=val, fill=name)) +
+  geom_col() +
+  scale_x_continuous(position = "top") +
+  scale_y_reordered() +
+  scale_fill_si(palette = "siei", discrete = T) +
   si_style_xgrid() +
-  facet_wrap(~operating_unit)+
+  facet_wrap(~name, scales = "free_y")+
   ggtitle("Unique reporting issues by OU")+
   labs(x = NULL, y = NULL)+
   theme(legend.position = "bottom")+
-   theme(axis.title.y=element_blank(),
-      axis.text.y=element_blank(),
-      axis.ticks.y=element_blank(), 
-      legend.title = element_blank())
+   theme(axis.title.y = element_blank(),
+      legend.title = element_blank(),
+      strip.placement = "outside",
+      legend.position = "top")
+
 #image OU_ISSUES_TX_CURR_NAMES
 
 
