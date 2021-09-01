@@ -196,6 +196,7 @@ si_rampr("burnt_siennas") %>% show_col()
   
 ######################################
 #context visuals
+#which OUs are submitting the most narratives using these key terms (total)
 
 OU_c1<-
   agg_ou_cat %>%
@@ -229,6 +230,7 @@ OU_c2<-
 
 
 ######################################
+#OU by issues/non issue (total counts still)
 #ordered by issue
 
 OU_1<-
@@ -265,7 +267,8 @@ OU_2<-
 
 
 ######################################
-#ordered by value
+#OU by issues/non issue (total counts still)
+#ordered by value (issue + non-issue)
 
 OU_3<-
   agg_ou_cat %>%
@@ -300,7 +303,7 @@ OU_4<-
 ######################################
 #       VISUALS - PARTNER LEVEL
 ######################################
-
+#How many partners reported issues, by OU?
 
 y1<-
   agg_partner_un_collapse %>%
@@ -422,49 +425,54 @@ agg_name_un %>%
   scale_fill_si(palette = "siei", discrete = T) +
   si_style_xgrid() +
   facet_wrap(~name, scales = "free_y")+
-  ggtitle("Unique reporting issues by OU")+
   labs(x = NULL, y = NULL)+
   theme(legend.position = "bottom")+
    theme(axis.title.y = element_blank(),
       legend.title = element_blank(),
       strip.placement = "outside",
-      legend.position = "top")
+      legend.position = "none")+
+plot_annotation(
+  title = "FY21 Q3: TX_CURR NARRATIVES REVIEWED BY PARTNER WITHIN KEY TERMS",
+  subtitle = "...",
+  caption = "Source: FY21 Q3 Narratives",
+  theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
 
-#image OU_ISSUES_TX_CURR_NAMES
 
-
-####################################
-# OU faceted out by names
+##REPEAT FOR TX_PVLS
 agg_name_un %>%
-  filter(category=="issue" & indicator=="TX_CURR") %>% 
-  filter(val>0) %>% 
-  filter(name=="TX_CURR_COVID"|name=="mmd"|name=="arv_stockout"|name=="data_reporting"|name=="general_impact_on_treatment"|name=="total_tx_curr_mech"|name=="staffing") %>% 
-  mutate(name = str_replace_all(name, "_"," "),
-         name=str_to_sentence(name), 
-         name=case_when(
-           name=="Tx curr covid"~"COVID-19",
-           name=="Total tx curr mech"~"Total TX_CURR Mech",
-           name=="Mmd"~"MMD", 
-           name=="Arv stockout"~"ARV stockout", 
-           name=="General impact on vl"~"General impact on VL",          
-           TRUE~name)) %>% 
-   ggplot(aes(y=fct_reorder(operating_unit, name,max), x=val, fill=name))+
-  # ggplot(aes(y=reorder_within(operating_unit, val, name), x=val, fill=name)) +
-  geom_col(width=.8)+
-  si_style()+
-  si_style_xgrid()+
-  scale_y_reordered()+
+  mutate(
+    operating_unit = case_when(
+      str_detect(operating_unit, "^Western") ~ "WHR",
+      str_detect(operating_unit, "^Dominican") ~ "DR",
+      str_detect(operating_unit, "^Democratic Rep") ~ "DRC",
+      str_detect(operating_unit, "^West Af") ~ "WAR",
+      TRUE ~ operating_unit
+    )) %>% 
+  group_by(indicator, operating_unit, name, category) %>%
+  summarise(val = sum(val, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  filter(category == "issue", 
+         indicator == "TX_PVLS", 
+          name %in% c("backlogs",  "reagent_stockout", "equipment", "resource_reallocation",
+         #             "kudos","general_impact_on_treatment","arv_stockout","mmd","total_tx_curr_mech", "staffing"
+                        "data_reporting", "sample_collection", "results_returned"),
+         val > 0) %>% 
+  mutate(name = str_replace_all(name, "_", " ")) %>% 
+  ggplot(aes(y=reorder_within(operating_unit, val, name), x=val, fill=name)) +
+  geom_col() +
+  scale_x_continuous(position = "top") +
+  scale_y_reordered() +
+  scale_fill_si(palette = "siei", discrete = T) +
+  si_style_xgrid() +
   facet_wrap(~name, scales = "free_y")+
-  # ggtitle("Unique reporting issues by OU")+
   labs(x = NULL, y = NULL)+
   theme(legend.position = "bottom")+
-  theme(axis.title.y=element_blank(),
-        axis.ticks.y=element_blank(), 
+  theme(axis.title.y = element_blank(),
         legend.title = element_blank(),
-        legend.position = "none") +
+        strip.placement = "outside",
+        legend.position = "none")+
   plot_annotation(
-    title = "FY21 Q3: TX_CURR NARRATIVES REVIEWED BY PARTNER WITHIN KEY TERMS",
+    title = "FY21 Q3: TX_PVLS NARRATIVES REVIEWED BY PARTNER WITHIN KEY TERMS",
     subtitle = "...",
     caption = "Source: FY21 Q3 Narratives",
     theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
-
