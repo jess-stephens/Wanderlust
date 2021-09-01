@@ -189,6 +189,54 @@ si_rampr("moody_blues") %>% show_col()
 
 
 
+# 923417 - DARK BROWN/ORANGE
+# FFB790 - light orange
+# BF5A39 - middle color
+
+######################################
+#       VISUALS - OU LEVEL
+######################################
+
+  
+######################################
+#context visuals
+#which OUs are submitting the most narratives using these key terms (total)
+
+OU_c1<-
+  agg_ou_cat %>%
+  filter(indicator %in% c("TX_PVLS")) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, val)))+
+  geom_col(aes( x=val), fill="#7069B2", alpha=.8)+ 
+  si_style_xgrid()+
+  facet_wrap(~indicator)+
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = "none")
+
+OU_c2<-
+  agg_ou_cat %>%
+  filter(indicator %in% c("TX_CURR")) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, val)))+
+  geom_col(aes( x=val), fill="#BF5A39", alpha=.8)+ 
+  si_style_xgrid()+
+  facet_wrap(~indicator)+
+  labs(x = NULL, y = NULL)+
+  theme(legend.position = "none")
+
+
+(OU_c1 + OU_c2) + plot_layout(widths  = c(1, 1))+
+  plot_annotation(
+    title = "FY21 Q3: TX_PVLS AND TX_CURR NARRATIVES REVIEWED FOR KEY TERMS BY OU",
+    subtitle = "OUs submitting the most narratives capturing the key terms by indicator are Kenya (<b style='color:#7069B2'>TX_PVLS</b>) and Asia Region (<b style='color:#BF5A39'>TX_CURR</b>)",
+    caption = "Source: FY21 Q3 Narratives",
+    theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown())) 
+
+
+
+
+######################################
+#OU by issues/non issue (total counts still)
+#ordered by issue
+
 v1<-
   agg_ou_cat %>%
   filter(indicator %in% c("TX_PVLS")) %>% 
@@ -243,6 +291,39 @@ v2<-
 #         plot.margin = unit(c(4, 1, 1, 1), "lines"))
 # labs(title = "New plot <b style='color:#009E73'>title</b>", 
 #      subtitle = "A <b style='color:#D55E00'>subtitle</b>") +
+(OU_1 + OU_2) + plot_layout(widths  = c(1, 1))+
+  plot_annotation(
+    title = "FY21 Q3: TX_PVLS AND TX_CURR NARRATIVES REVIEWED FOR KEY TERMS BY OU",
+   subtitle = "Kenya described most <b style='color:#2F2E6F'>TX_PVLS</b> issues, while Kenya and South Africa each described the most <b style='color:#923417'>TX_CURR</b> issues",
+     caption = "Source: FY21 Q3 Narratives",
+     theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown())) 
+
+
+######################################
+#OU by issues/non issue (total counts still)
+#ordered by value (issue + non-issue)
+
+OU_3<-
+  agg_ou_cat %>%
+  filter(indicator %in% c("TX_PVLS")) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, val)))+
+  geom_col(aes( x=val, fill=fct_rev(category)), alpha=.8)+ 
+  si_style_xgrid()+
+  facet_wrap(~indicator)+
+  scale_fill_manual(values = c('#CFC3FF', '#2F2E6F'))+ 
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = "none")
+
+OU_4<-
+  agg_ou_cat %>%
+  filter(indicator %in% c("TX_CURR")) %>% 
+  ggplot(aes(y=fct_reorder(operating_unit, val)))+
+  geom_col(aes( x=val, fill=fct_rev(category)), alpha=.8)+ 
+  si_style_xgrid()+
+  facet_wrap(~indicator)+
+  scale_fill_manual(values = c('#FFB790', '#923417'))+ 
+  labs(x = NULL, y = NULL)+
+  theme(legend.position = "none")
 
 
 (v1 + v2) + plot_layout(widths  = c(1, 1)) +
@@ -293,6 +374,12 @@ agg_partner_un %>%
 #image 
 
  
+    # theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown())) 
+
+######################################
+#       VISUALS - PARTNER LEVEL
+######################################
+#How many partners reported issues, by OU?
 
 y1<-
   agg_partner_un_collapse %>%
@@ -419,15 +506,17 @@ agg_name_un %>%
   scale_fill_si(palette = "siei", discrete = T) +
   si_style_xgrid() +
   facet_wrap(~name, scales = "free_y")+
-  ggtitle("Unique reporting issues by OU")+
   labs(x = NULL, y = NULL)+
   theme(legend.position = "bottom")+
    theme(axis.title.y = element_blank(),
       legend.title = element_blank(),
       strip.placement = "outside",
-      legend.position = "top")
-
-#image OU_ISSUES_TX_CURR_NAMES
+      legend.position = "none")+
+plot_annotation(
+  title = "FY21 Q3: TX_CURR NARRATIVES REVIEWED BY PARTNER WITHIN KEY TERMS",
+  subtitle = "...",
+  caption = "Source: FY21 Q3 Narratives",
+  theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
 
 
 
@@ -574,3 +663,42 @@ agg_fy21q2_col %>%
             hjust=1, nudge_x=-.5)+
   scale_fill_identity(guide="none") +
   si_style()
+
+##REPEAT FOR TX_PVLS
+agg_name_un %>%
+  mutate(
+    operating_unit = case_when(
+      str_detect(operating_unit, "^Western") ~ "WHR",
+      str_detect(operating_unit, "^Dominican") ~ "DR",
+      str_detect(operating_unit, "^Democratic Rep") ~ "DRC",
+      str_detect(operating_unit, "^West Af") ~ "WAR",
+      TRUE ~ operating_unit
+    )) %>% 
+  group_by(indicator, operating_unit, name, category) %>%
+  summarise(val = sum(val, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  filter(category == "issue", 
+         indicator == "TX_PVLS", 
+          name %in% c("backlogs",  "reagent_stockout", "equipment", "resource_reallocation",
+         #             "kudos","general_impact_on_treatment","arv_stockout","mmd","total_tx_curr_mech", "staffing"
+                        "data_reporting", "sample_collection", "results_returned"),
+         val > 0) %>% 
+  mutate(name = str_replace_all(name, "_", " ")) %>% 
+  ggplot(aes(y=reorder_within(operating_unit, val, name), x=val, fill=name)) +
+  geom_col() +
+  scale_x_continuous(position = "top") +
+  scale_y_reordered() +
+  scale_fill_si(palette = "siei", discrete = T) +
+  si_style_xgrid() +
+  facet_wrap(~name, scales = "free_y")+
+  labs(x = NULL, y = NULL)+
+  theme(legend.position = "bottom")+
+  theme(axis.title.y = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+        legend.position = "none")+
+  plot_annotation(
+    title = "FY21 Q3: TX_PVLS NARRATIVES REVIEWED BY PARTNER WITHIN KEY TERMS",
+    subtitle = "...",
+    caption = "Source: FY21 Q3 Narratives",
+    theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
