@@ -48,6 +48,8 @@ vignettes/*.pdf
 *.png
 *.twbx
 *.pptx
+*.twbx
+
 
 #nothing from these folders
 AI/*
