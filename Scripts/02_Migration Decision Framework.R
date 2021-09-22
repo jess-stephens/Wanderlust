@@ -1,21 +1,18 @@
-# Steps in excel
-# removed 3 leading rows
-# moved the occurances of references in origin/destination examples to references ~15 rows impacted
 
 
 getwd()
 
 #read xlsx - specify path, sheet name to read
-df <- read_xlsx("Data/20210910_Migration Decision Framework.xlsx",
-                        sheet="Tidy data", col_types = "text") %>% 
+df <- read_xlsx("Data/20210921_Migration Decision Framework.xlsx",
+                        sheet="Tidy data 2", col_types = "text") %>% 
       janitor::clean_names()
 
 glimpse(df)
 
 df_countryreference <- df %>% 
   #country names should be 
-  separate(origin_destination_examples, c("A","B", "C","D","E"), sep = "([+;,()])") %>% 
-   separate(examples_references, c("G", "H","I", "J", "K"), sep = "([;])") %>% 
+  separate(origin_destination, c("A","B", "C","D","E", "F", "G", "H"), sep = "([+;,()])") %>% 
+   # separate(examples_references, c("G", "H","I", "J", "K"), sep = "([;])") %>% 
   select(!c(starts_with("x")))  
 
 view(df_countryreference)
@@ -29,80 +26,69 @@ view(df_countryreference)
 
 df_long_country <- df_countryreference %>% 
   pivot_longer(
-    cols = A:E,  
+    cols = A:H,  
     values_to = "country") %>% 
 #remove spaces from before/after country
    mutate(country=str_trim(country, side = "both") ,
   #those that are empty because of the pivot can be dropped
-   drop=ifelse(name!="A" & is.na(country), 1, NA) ,
-   # #those that listed "Lake Victoria" also listed relevant countries in parenthesis and can be dropped
-   drop=ifelse(country=="Lake Victoria", 1, NA),
-  #lake victoria basin countries not identified, should be listed
-   basin1=ifelse(country=="Lake Victoria Basin", "Uganda", NA), 
-   basin2=ifelse(country=="Lake Victoria Basin", "Tanzania", NA), 
-   basin3=ifelse(country=="Lake Victoria Basin", "Rwanda", NA), 
-   basin4=ifelse(country=="Lake Victoria Basin", "Kenya", NA), 
-   basin5=ifelse(country=="Lake Victoria Basin", "Burundi", NA))
+   drop=ifelse(name!="A" & is.na(country), 1, NA), 
+   region1=ifelse(country=="West Africa", "Benin", NA),
+  region2=ifelse(country=="West Africa", "Cote d'Ivoire", NA),
+  region3=ifelse(country=="West Africa", "Ghana", NA),
+  region4=ifelse(country=="West Africa", "Nigeria", NA),
+  region5=ifelse(country=="West Africa", "The Gambia", NA),
+  region6=ifelse(country=="West Africa", "Togo", NA),
+  region7=ifelse(country=="East Africa", "Kenya", NA),
+  region8=ifelse(country=="East Africa", "Tanzania", NA),
+  region9=ifelse(country=="East Africa", "Uganda", NA),
+  region10=ifelse(country=="Southern Africa", "Angola", NA),
+  region11=ifelse(country=="Southern Africa", "Botswana", NA),
+  region12=ifelse(country=="Southern Africa", "The Democratic Republic of Congo", NA), ###################### check name
+  region13=ifelse(country=="Southern Africa", "Lesotho", NA),
+  region14=ifelse(country=="Southern Africa", "Malawi", NA),
+  region15=ifelse(country=="Southern Africa", "Mozambique", NA),
+  region16=ifelse(country=="Southern Africa", "Namibia", NA),
+  region17=ifelse(country=="Southern Africa", "South Africa", NA),
+  region18=ifelse(country=="Southern Africa", "Eswatini", NA),
+  region19=ifelse(country=="Southern Africa", "Zambia", NA),
+  region20=ifelse(country=="Southern Africa", "Zimbabwe", NA))  %>% 
+  select(!c(name)) %>%
+  filter(is.na(drop))
 view(df_long_country)
 
 #beware of duplicates! these are sometimes written out and sometimes not
 
-df_long_basin <- df_long_country %>% 
+
+
+
+df_long_region<- df_long_country %>%
   pivot_longer(
-    cols = basin1:basin5,  
+    cols = region1:region20,
     values_to = "country2",
-    names_to= "names2") %>%
+    names_to= "names2")%>%
   mutate(
-    #create separate region variable for lake victoria/basin
-    region=ifelse(country %in% c("Lake Victoria Basin"), "Lake Victoria Basin", "Other"), 
-    region=ifelse((country %in% c("Uganda", "Tanzania", "Kenya") & region!="Lake Victoria Basin"), "Lake Victoria", region),
-    #rename country var from the basin countries
-    country=ifelse(country=="Lake Victoria Basin", country2, country)) %>% 
+    #create separate region variable for regions
+    region=ifelse(country %in% c("West Africa"), "West Africa", "Country Specific"),
+    region=ifelse(country %in% c("East Africa"), "East Africa", region),
+    region=ifelse(country %in% c("Southern Africa"), "Southern Africa", region),
+    #rename country var from the region countries
+    country=ifelse(country %in% c("West Africa", "East Africa", "Southern Africa"), country2, country)) %>%
  #drop extra variables used to pivot
-   select(!c(name, names2, country2)) %>% 
-  filter(is.na(drop))
-  view(df_long_basin)
-
-
- # test<- df_long_basin %>%
- #   filter(!is.na(country2)) %>% 
- #   view()
- 
-# df_long_basin %>%
-#     distinct(region) %>%
-#   pull()
-
-#pivot long for references
-df_long_ref <- df_long_basin %>% 
-  pivot_longer(
-    cols = G:K,  
-    values_to = "references") %>% 
-  #remove spaces from before/after country
-  mutate(references=str_trim(references, side = "both"),
-  # filter(name!="A" & is.na(country))
-          drop=ifelse(name!="G" & is.na(references), 1, NA) , 
-  drop=ifelse(country=="", 1, NA)) %>% 
-  filter(is.na(drop)) %>% 
-   select(!c(drop, name)) 
-
-view(df_long_ref)
+   select(!c(names2, country2)) 
+  view(df_long_region)
 
 
 
-  
-# test<- df_long_ref %>%
-#   filter(country=="") %>%
-#   view()
-#   #these missing are due to the column that was created when doing text to column separate by "(" and can be deleted
-# 
-# df_long_ref %>%
-#   distinct(migration_stage_relevance) %>%
-#   pull()
+ # df_long_region %>%
+ #    distinct(region) %>%
+ #  pull()
 
 
 
-df_migrationstage <- df_long_ref %>% 
-  separate(migration_stage_relevance, c("A","B", "C","D"), sep = "([,])")
+
+
+df_migrationstage <- df_long_region %>% 
+  separate(migration_stage_relevance, c("A","B", "C","D"), sep = "([,])") %>% 
 view(df_migrationstage)
 
 
@@ -113,9 +99,11 @@ df_long_migrationstage <- df_migrationstage %>%
     values_to = "migration_stage_relevance") %>% 
   #remove spaces from before/after country
   mutate(migration_stage_relevance=str_trim(migration_stage_relevance, side = "both"),
-         drop=ifelse(name!="A" & is.na(migration_stage_relevance), 1, NA)) %>% 
+         country=str_trim(country, side = "both"),
+         drop=ifelse(name!="A" & is.na(migration_stage_relevance), 1, NA),
+         country=ifelse(is.na(country), "No Country Data", country)) %>% 
   filter(is.na(drop)) %>% 
-  select(!c(drop, name)) 
+  select(!c(drop, name, who, where, when)) 
 view(df_long_migrationstage)
 
 # test<- df_long_migrationstage %>%
@@ -125,7 +113,21 @@ view(df_long_migrationstage)
 
 
 
+df_long_migrationstage %>%
+   distinct(migration_pattern) %>%
+ pull()
+df_long_migrationstage %>%
+  distinct(population) %>%
+  pull()
+nrow(df_long_migrationstage)
 
-
-
-write_tsv(df_long_migrationstage, "DataOut/Migration Decision Framework_20210910", na = " ")
+# write_tsv(df_long_migrationstage, "DataOut/Migration Decision Framework_20210921_6", na = "NA")
+write_excel_csv(df_long_migrationstage, "DataOut/Migration Decision Framework_20210921_6.csv", na = "")
+# 
+# 
+# write_tsv(df_long_migrationstage, "DataOut/Migration Decision Framework_20210921_test", na = " ")
+# write_csv(df_long_migrationstage, "DataOut/Migration Decision Framework_20210921", na = " ")
+# library(xlsx)
+# install.packages("writexl")
+# 
+# write.xlsx(mydata, "c:/mydata.xlsx")
