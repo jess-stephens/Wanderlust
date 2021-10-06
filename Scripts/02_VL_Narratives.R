@@ -1,28 +1,48 @@
+########################################################################################
+# Aim: Can PEPFAR Narratives be used to visualize issues related to PEPFAR programs?
+# Program area: Viral Load Program indicators (TX_CURR, TX_PVLS)
+# Code by: Jessica Stephens for the ICPI Viral Load/EID Sub-Cluster
+
+# This is a final script for the quarter identified in the branch title 
+# As presented in VL/EID Qtrly Data Summary for the VL/EID CoOP
+########################################################################################
+
+#load libraries - if 1st time running script, review setup to install necessary packages
 source("Scripts/00_Setup.R")
 
+####################################################################################
+# Narratives excel format require basic munging into Tidy Data
+####################################################################################
 
+
+#check location of project vs data
+#getwd()
+#if the data is in a different location than the project, set working directory
 setwd("C:/Users/jStephens/Documents/ICPI/Narrative Analysis")
 
+#read in excel data set of narratives (these narratives have been read and assigned sentiments)
 df <- read_xlsx("Data/NarrativeAnalysis_FY21Q3_TX_CURR_1Sep2021.xlsx", sheet="TX_CURR",
                col_types = "text") %>% 
   janitor::clean_names()
 
   glimpse(df)
-  
-names(df)
+  names(df)
 
 df_PVLS <-read_xlsx("Data/NarrativeAnalysis_FY21Q3_TX_PVLS_1Sep2021.xlsx", sheet="TX_PVLS",
                col_types = "text") %>% 
   janitor::clean_names()
 
-glimpse(df)
-names(df)
+  glimpse(df)
+  names(df)
 
+#combine TX_CURR and TX_PVLS narratives into 1 dataset
 df2<-bind_rows(df, df_PVLS) %>% 
   rename(partner=mech_name)
 
-names(df2)
+  names(df2)
 
+#pivot key terms from wide to long
+  #if there are any differences in coding values, may start cleaning here
 df_long <- df2 %>% 
   pivot_longer(
     cols =  covid:tx_pvls_covid,  
@@ -31,10 +51,12 @@ df_long <- df2 %>%
                        val=="N"~"n", 
                        TRUE~val))
 
+#review pivot
+  glimpse(df_long)
+  names(df_long)
 
-glimpse(df_long)
-names(df_long)
-
+#pivot values from long to wide (issues and non-issues with own columns)
+    #values for issues and non-issues changed to numeric "1" flag to be quantified
 df_wider <- df_long %>% 
   pivot_wider(
     names_from = val, 
@@ -47,96 +69,95 @@ df_wider <- df_long %>%
     i=as.numeric(i)) %>% 
   rename(no_issue=n, issue=i)
 
-glimpse(df_wider)
-names(df_wider)
+#review pivot
+  glimpse(df_wider)
+  names(df_wider)
 
+#final pivot long for tidy data set with issue/non-issue as "category" of sentiment
 df_long_cat <- df_wider %>% 
   pivot_longer(
     cols= no_issue:issue,  
     names_to="category",
     values_to="val")
 
+####################################################################
+# Visuals require different level of aggregation
+# Data munged/aggregated belwo according to analytic questions
+# Aggregation started at lowest (name aka key term) to highest (OU)
+####################################################################
 
+##########################################################
+# Aggregate by name (key term)
+# EX. Display TX_PVLS & TX_CURR narratives by key terms
+##########################################################
 
-
-#############################################
-#########    aggregate by name
-agg_name<-df_wider %>% 
-   select(indicator, operating_unit, partner, name, no_issue, issue) %>% 
-  group_by(indicator, operating_unit, partner, name) %>% 
-  summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
-  ungroup() 
-  
-
+#Collapse to 1 row by indicator, operating unit, partner & name 
 agg_name_long<-df_long_cat %>% 
   select(indicator, operating_unit, partner,name, category, val) %>% 
   group_by(indicator,operating_unit, partner,name, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
   ungroup() 
   
-
-#unique count of name
+#Then give value of 1 if that group has reported at least 1 issue/non-issue
 agg_name_un<-agg_name_long %>% 
   mutate(val=case_when(
     val>=1~1, TRUE~val))
 
+#used in visuals: z1/z2/standalone visuals
 
-#############################################
-#########   aggregate at partner level
-agg_partner<-df_wider %>% 
-  select(indicator, operating_unit, partner, no_issue, issue) %>% 
-  group_by(indicator,operating_unit, partner ) %>% 
-  summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
-  ungroup()
-  
-
+##########################################################
+# Aggregate by partner
+# EX. Display TX_PVLS & TX_CURR narratives by partner
+##########################################################
+#Collapse to 1 row by indicator, operating unit & partner
 agg_partner_long<-df_long_cat %>% 
   select(indicator, operating_unit, partner, category, val) %>% 
   group_by(indicator,operating_unit, partner, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
   ungroup()
   
-
-#unique count of partner
+#Then give value of 1 if that group has reported at least 1 issue/non-issue
 agg_partner_un<-agg_partner_long %>% 
   mutate(val=case_when(
     val>=1~1, TRUE~val))
 
+#Then drop partner name to collapse for OU level view
 agg_partner_un_collapse<-agg_partner_un %>% 
   group_by(indicator, operating_unit, category) %>% 
   summarise(val = sum(val)) %>% 
   ungroup()
 
+#used in visuals: y1/y2
 
-#############################################
-#########   aggregate at OU level
-agg_ou<-df_wider %>% 
-  select(indicator, operating_unit, no_issue, issue) %>% 
-  group_by(indicator,operating_unit ) %>% 
-  summarize_at(vars(issue, no_issue), sum, na.rm=TRUE) %>% 
-  ungroup()
-  
+##########################################################
+# Aggregate by OU
+# EX. Display TX_PVLS & TX_CURR narratives by OU (total) 
+#   & by number of partners within OU
+##########################################################
 
+#total number of occurrences per OU
 agg_ou_cat<-df_long_cat %>% 
   select(indicator, operating_unit, partner, category, val) %>% 
   group_by(indicator,operating_unit, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
   ungroup()
   
-
-
-#aggregate to OU by unique parter mentions
+#unique partner mentions per OU
 agg_ou_partner_un<-agg_partner_un %>% 
   select(indicator, operating_unit, category, val) %>% 
   group_by(indicator,operating_unit, category ) %>% 
   summarize_at(vars(val), sum, na.rm=TRUE) %>% 
   ungroup()
+
+#used in visuals: OU_c1/OU_c2/OU_1/OU_2
   
+##################################################################################
+########################        Visualizations           #########################
+##################################################################################
 
-#####################################################################
-
-#chose colors
-
+##########################################
+# Set up Colors 
+##########################################
 # TX_PVLS colors
 si_rampr("moody_blues") %>% show_col()
 # 2F2E6F - DARK PURPLE
@@ -154,8 +175,6 @@ si_rampr("burnt_siennas") %>% show_col()
 #       VISUALS - OU LEVEL
 ######################################
 
-  
-######################################
 #context visuals
 #which OUs are submitting the most narratives using these key terms (total)
 
@@ -190,9 +209,9 @@ OU_c2<-
 
 
 
-######################################
+###############################################
 #OU by issues/non issue (total counts still)
-#ordered by issue
+#which OUs are submitting the most narratives using these key terms (total), ordered by issue
 
 OU_1<-
   agg_ou_cat %>%
@@ -228,8 +247,8 @@ OU_2<-
      caption = "Source: FY21 Q3 Narratives",
      theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown())) 
 
-# 
-# ######################################
+# following not included in final visuals, but may be of interest to different stakeholders
+# ###############################################
 # #OU by issues/non issue (total counts still)
 # #ordered by value (issue + non-issue)
 # 
@@ -313,7 +332,8 @@ y2<-
 ######################################
 #       VISUALS - NAME LEVEL
 ######################################
-#by indicator
+#How many partners reported issues by name (key term)
+
 
 z1<-agg_name_un %>%
   filter(category=="issue" & indicator=="TX_PVLS" ) %>% 
@@ -378,12 +398,14 @@ z2<-agg_name_un %>%
 
 
 
-#####################################3
+#####################################
 #stand alone visuals
-si_rampr("burnt_siennas") %>% show_col()
-si_rampr("moody_blues") %>% show_col()
+#####################################
+# si_rampr("burnt_siennas") %>% show_col()
+# si_rampr("moody_blues") %>% show_col()
 
-##by ou, TX_PVLS
+#Top 6 Issues for TX_PVLS by OU
+# TX_PVLS
 agg_name_un %>%
   mutate(
     operating_unit = case_when(
@@ -435,8 +457,8 @@ agg_name_un %>%
     theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
 
 
-
-# by OU, TX_CURR
+#Top 6 Issues for TX_CURR by OU
+#TX_CURR
 agg_name_un %>%
   mutate(
     operating_unit = case_when(
@@ -489,15 +511,16 @@ agg_name_un %>%
 
 
 
-#####################################3
-#stand alone visuals
-############## BY OU
-#### 6 high vl pvls d targets
+#####################################
+#stand alone visual  BY OU
+#####################################
+# si_rampr("siei") %>% show_col()
+
+
+#top 6 OUs by FY21 TX_PVLS (D) Targets for TX_PVLS by OU
 #SA​, Moz​, TZ​, Nigeria​, Kenya​.Zimbabwe
 
-si_rampr("siei") %>% show_col()
-
-##by ou, TX_PVLS
+##TX_PVLS
 agg_name_un %>%
   mutate(
     operating_unit = case_when(
@@ -552,7 +575,7 @@ agg_name_un %>%
 
 
 
-# by OU, TX_CURR
+#TX_CURR
 agg_name_un %>%
   mutate(
     operating_unit = case_when(
@@ -605,29 +628,3 @@ agg_name_un %>%
     Top 6 OUs by FY21 TX_PVLS (D) Targets for TX_PVLS by OU
     6th OU = Zimbabwe (no narratives reported), replaced by 7th OU = Uganda",
     theme = theme(plot.title = element_markdown(), plot.subtitle = element_markdown()))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
