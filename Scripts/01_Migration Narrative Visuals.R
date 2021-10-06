@@ -1,8 +1,16 @@
+# Aim: Can PEPFAR Narratives be used to describe the impact of migration on PEPFAR programs?
+# Specifically utilizing Treatment Program indicators (TX_ML, TX_RTT)
+# code by: Jessica Stephens for the OHA Migration Cluster
+
+# This script is an exploratory analysis - VISUALS NOT FINAL OR PUBLISHED
+# Can be used to inform other narratives analyses
+
+
 source("Scripts/00_setup.R")
 
-#setwd("C:/Users/jStephens/Documents/Migration/Wanderlust") # BK: This repo is project and working directory is already set to "./"
 
-# BK: where is this file ?
+setwd("C:/Users/jStephens/Documents/Migration/Wanderlust") 
+
 df <- read_xlsx("Data/20210707 Migration Narratives FY20Q2-FY21Q2.xlsx", sheet="data")
 
 
