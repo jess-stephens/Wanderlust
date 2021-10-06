@@ -1,3 +1,5 @@
+# Aim: Munge literature for use in migration decision framework in Tableau
+# code by: Jessica Stephens for the OHA Migration Cluster
 
 
 getwd()
